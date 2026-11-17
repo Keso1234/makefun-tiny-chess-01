@@ -1,39 +1,74 @@
 # makefun-tiny-chess-01
 
-A chess engine in one Python file, built for make.fun's tiny-chess-01 bounty
-(strongest chess engine in 4 KB of Python). It is an original 0x88-board
-engine: a full pseudo-legal move generator (castling, en passant, promotion,
-check detection), negamax alpha-beta search with iterative deepening under a
-fixed 120,000-node budget per move (never a clock, so every trial replays
-move for move), quiescence search over captures and promotions with full
-check evasions and SEE-lite pruning of losing captures, a Zobrist
-transposition table (with a side-to-move key), killer-move, history-heuristic
-and MVV-LVA ordering, check extensions, null-move pruning, late-move
-reductions, and an incremental evaluation (material plus formula piece-square
-terms, pawn advancement, rook on the seventh, bishop pair, king pawn shelter,
-and endgame king centralisation). The source is packed as an LZMA payload
-with a three-line unpacker so the whole engine fits the 4,096-byte cap; the
-unpacked engine is about 7.7 KB of plain Python, standard library only, with
-no model call and no network access beyond the contest env.
+A tiny original chess engine for the make.fun tiny-chess-01 bounty: one
+self-contained `main.py` (4,094 bytes), Python 3.13 stdlib only, no model,
+no copied code. It plays the kit's 16-game gauntlet over the env HTTP API
+and is fully deterministic: a fixed node budget ends the search, never a
+clock; the only randomness is a seeded PRNG for the Zobrist keys.
 
-Measured locally against the kit's practice trial-0 (16 games vs the house
-anchors, run with the kit env and scorer): Elo 1087, 3 wins / 2 draws /
-11 losses, ~34 min wall. An earlier version scored Elo 1173 on the same
-trial; the two are within the noise of a 16-game sample and split a 4-game
-self-play match 2-2, so this version was kept for its deeper search: it
-reaches depth 6-7 in middlegame positions (the earlier version reached 4-6).
-Move generation is verified by perft on five standard positions (startpos,
-kiwipete, en-passant, promotion, pos5 — all counts exact, board state fully
-restored), and determinism is verified in fresh processes (identical single
-move and identical 8-ply self-play sequence across runs).
+## The engine (v11)
 
-Run it with the env URL set, as the trial does:
+- 0x88 board with incremental Zobrist hashing.
+- Negamax with alpha-beta, iterative deepening, PVS at the root,
+  and aspiration windows from depth 3.
+- Fixed node budget of 250,000 nodes per move, counting search and
+  quiescence together.
+- Quiescence over captures, promotions and check evasions, with a
+  cheap capture filter.
+- Transposition table, null-move pruning, late-move reductions, check
+  extensions, killer moves and a history table for move ordering.
+- Evaluation: material plus per-piece piece-square tables, bishop-pair
+  bonus and a small tempo bonus, all incremental.
+- Repetition scoring: positions already seen in the game score as
+  draws, so the engine takes a repetition when behind and avoids one
+  when ahead; the driver replays the game history so the set is exact.
+- The HTTP driver survives a failed request: a failed move falls back
+  to resigning that one game instead of crashing the trial.
+
+## Local practice results
+
+Local kit-env-and-scorer measurements, 16 games each. Dev gate is
+trial-0 only (floor 1,154); sunfish baseline mean is 1,360.
+
+| instance | Elo | W-D-L |
+|----------|-----|-------|
+| trial-0 | 1396 | 7-2-7 |
+| trial-1 | 1362 | 7-1-8 |
+| trial-2 | 1173 | 5-0-11 |
+| mean | 1310 | |
+
+The v1 entry scored 1,087 locally on trial-0 (997 on the server).
+The slowest uncontended move took 7.6 s of the 10 s limit.
+
+## Trial-2 re-run
+
+The first trial-2 run shared this VM with trial-1 and lost two games
+on time (Elo 1,131); a clean sequential re-run scored 1,173 with no
+time loss. The server runs each trial uncontended, so the clean
+figures are representative, and the dev gate is trial-0 only (1,396
+here). Verification: perft passes, two fresh-process self-plays
+agree, and every Elo figure comes from a full 16-game trial scored
+with the kit scorer.
+
+## Running it locally
+
+Start the kit env, then run the engine against it:
 
 ```
-MAKEFUN_ENV_URL=http://store:8080 python3 -P -s main.py
+KIT=<path to the tiny-chess-01-kit directory>
+MAKEFUN_ENV_DATA_DIR=$KIT/practice/trial-0/input/env \
+MAKEFUN_STATE_DIR=/tmp/tc/state MAKEFUN_ENV_PORT=8081 \
+  node $KIT/program/env/server.mjs &
+MAKEFUN_ENV_URL=http://127.0.0.1:8081 python3 -P -s main.py
 ```
 
-It plays the 16-game gauntlet through the env (`POST /game`, `/move`,
-`/resign`) and exits when every game is over.
+SIGTERM the env to export `state.json`, then score it with
+`program/scorer/score.mjs` (see the kit docs for its env vars).
 
-<sub>Entered on [make.fun](https://make.fun/?ref=taaana65&utm_source=github&utm_medium=readme&utm_campaign=tiny-chess-01) · AI agents build software for cash rewards</sub>
+## Notes
+
+- `main.py` is an LZMA-compressed payload plus a two-line unpacker.
+- Deterministic: two fresh-process 8-ply self-plays give identical
+  moves; perft checks pass.
+
+Built for make.fun - try the bounties yourself: https://make.fun/r/taaana65
