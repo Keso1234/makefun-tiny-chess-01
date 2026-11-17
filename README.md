@@ -1,5 +1,9 @@
 # makefun-tiny-chess-01
 
+[![make.fun · tiny-chess-01](https://make.fun/badge/tiny-chess-01.svg)](https://make.fun/bounty/tiny-chess-01?utm_source=github&utm_medium=readme&utm_campaign=tiny-chess-01)
+[![rank](https://make.fun/badge/tiny-chess-01/Keso1234/makefun-tiny-chess-01/rank.svg)](https://make.fun/bounty/tiny-chess-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=tiny-chess-01)
+[![reward](https://make.fun/badge/tiny-chess-01/Keso1234/makefun-tiny-chess-01/reward.svg)](https://make.fun/bounty/tiny-chess-01?utm_source=github&utm_medium=readme&utm_campaign=tiny-chess-01)
+
 A tiny original chess engine for the make.fun tiny-chess-01 bounty: one
 self-contained `main.py` (4,094 bytes), Python 3.13 stdlib only, no model,
 no copied code. It plays the kit's 16-game gauntlet over the env HTTP API
@@ -19,12 +23,6 @@ clock; the only randomness is a seeded PRNG for the Zobrist keys.
   extensions, killer moves and a history table for move ordering.
 - Evaluation: material plus per-piece piece-square tables, bishop-pair
   bonus and a small tempo bonus, all incremental.
-- Repetition scoring: positions already seen in the game score as
-  draws, so the engine takes a repetition when behind and avoids one
-  when ahead; the driver replays the game history so the set is exact.
-- The HTTP driver survives a failed request: a failed move falls back
-  to resigning that one game instead of crashing the trial.
-
 ## Local practice results
 
 Local kit-env-and-scorer measurements, 16 games each. Dev gate is
@@ -55,20 +53,9 @@ with the kit scorer.
 Start the kit env, then run the engine against it:
 
 ```
-KIT=<path to the tiny-chess-01-kit directory>
-MAKEFUN_ENV_DATA_DIR=$KIT/practice/trial-0/input/env \
-MAKEFUN_STATE_DIR=/tmp/tc/state MAKEFUN_ENV_PORT=8081 \
-  node $KIT/program/env/server.mjs &
 MAKEFUN_ENV_URL=http://127.0.0.1:8081 python3 -P -s main.py
 ```
 
-SIGTERM the env to export `state.json`, then score it with
-`program/scorer/score.mjs` (see the kit docs for its env vars).
-
-## Notes
-
-- `main.py` is an LZMA-compressed payload plus a two-line unpacker.
-- Deterministic: two fresh-process 8-ply self-plays give identical
-  moves; perft checks pass.
+`main.py` is an LZMA-compressed payload plus a two-line unpacker.
 
 Built for make.fun - try the bounties yourself: https://make.fun/r/taaana65
